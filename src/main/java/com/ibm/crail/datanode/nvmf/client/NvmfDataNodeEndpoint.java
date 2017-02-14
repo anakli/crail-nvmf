@@ -22,31 +22,158 @@
 
 package com.ibm.crail.datanode.nvmf.client;
 
+import com.ibm.crail.conf.CrailConstants;
 import com.ibm.crail.datanode.DataNodeEndpoint;
 import com.ibm.crail.datanode.DataResult;
+import com.ibm.crail.datanode.nvmf.NvmfDataNodeConstants;
 import com.ibm.crail.namenode.protocol.BlockInfo;
 import com.ibm.crail.utils.CrailUtils;
+import com.ibm.crail.utils.DirectBufferCache;
+import com.ibm.disni.nvmef.NvmeEndpoint;
+import com.ibm.disni.nvmef.NvmeEndpointGroup;
+import com.ibm.disni.nvmef.spdk.IOCompletion;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
 
 public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 	private static final Logger LOG = CrailUtils.getLogger();
 
-	public Future<DataResult> write(ByteBuffer byteBuffer, ByteBuffer byteBuffer1, BlockInfo blockInfo, long l)
-			throws IOException, InterruptedException {
-		return null;
+	private final InetSocketAddress inetSocketAddress;
+	private final NvmeEndpoint endpoint;
+	private final int sectorSize;
+	private final DirectBufferCache cache;
+
+	public NvmfDataNodeEndpoint(NvmeEndpointGroup group, InetSocketAddress inetSocketAddress) throws IOException {
+		this.inetSocketAddress = inetSocketAddress;
+		endpoint = group.createEndpoint();
+		try {
+			URI url = new URI("nvmef://" + inetSocketAddress.getHostName() + ":" + inetSocketAddress.getPort() +
+					"/0/" + NvmfDataNodeConstants.NAMESPACE + "?subsystem=subsystem=nqn.2016-06.io.spdk:cnode1");
+			endpoint.connect(url);
+		} catch (URISyntaxException e) {
+			//FIXME
+			e.printStackTrace();
+		}
+		sectorSize = endpoint.getSectorSize();
+		this.cache = new DirectBufferCache();
 	}
 
-	public Future<DataResult> read(ByteBuffer byteBuffer, ByteBuffer byteBuffer1, BlockInfo blockInfo, long l)
+	public int getSectorSize() {
+		return sectorSize;
+	}
+
+	enum Operation {
+		WRITE,
+		READ;
+	}
+
+	public Future<DataResult> Op(Operation op, ByteBuffer buffer, BlockInfo remoteMr, long remoteOffset)
 			throws IOException, InterruptedException {
-		return null;
+		if (buffer.remaining() > CrailConstants.BLOCK_SIZE){
+			throw new IOException("write size too large " + buffer.remaining());
+		}
+		if (buffer.remaining() <= 0){
+			throw new IOException("write size too small, len " + buffer.remaining());
+		}
+		if (buffer.position() < 0){
+			throw new IOException("local offset too small " + buffer.position());
+		}
+		if (remoteOffset < 0){
+			throw new IOException("remote offset too small " + remoteOffset);
+		}
+
+		if (remoteMr.getAddr() + remoteOffset + buffer.remaining() > endpoint.getNamespaceSize()){
+			long tmpAddr = remoteMr.getAddr() + remoteOffset + buffer.remaining();
+			throw new IOException("remote fileOffset + remoteOffset + len too large " + tmpAddr);
+		}
+
+		boolean aligned = NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, remoteOffset) == 0
+				&& NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, buffer.remaining()) == 0;
+		long lba = NvmfDataNodeUtils.linearBlockAddress(remoteMr, remoteOffset, sectorSize);
+		Future<DataResult> future = null;
+		if (aligned) {
+			LOG.debug("aligned");
+			IOCompletion completion = null;
+			switch(op) {
+				case READ:
+					completion = endpoint.read(buffer, lba);
+					break;
+				case WRITE:
+					completion = endpoint.write(buffer, lba);
+					break;
+			}
+			future = new NvmfDataFuture(this, completion, buffer.remaining());
+		} else {
+			long alignedSize = NvmfDataNodeUtils.alignLength(sectorSize, remoteOffset, buffer.remaining());
+
+			ByteBuffer stagingBuffer = cache.getBuffer();
+			stagingBuffer.clear();
+			stagingBuffer.limit((int)alignedSize);
+			try {
+				switch(op) {
+					case READ: {
+						IOCompletion completion = endpoint.read(stagingBuffer, lba);
+						future = new NvmfDataUnalignedReadFuture(this, completion, buffer, remoteMr, remoteOffset, stagingBuffer);
+						break;
+					}
+					case WRITE: {
+						if (NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, remoteOffset) == 0) {
+							// Do not read if the offset is aligned to sector size
+							stagingBuffer.put(buffer);
+							stagingBuffer.position(0);
+							IOCompletion completion = endpoint.write(stagingBuffer, lba);
+							future = new NvmfDataFuture(this, completion, (int)alignedSize);
+						} else {
+							// RMW but append only file system allows only reading last sector
+							// and dir entries are sector aligned
+							stagingBuffer.limit(sectorSize);
+							IOCompletion completion = endpoint.read(stagingBuffer, lba);
+							future = new NvmfDataUnalignedRMWFuture(this, completion, buffer, remoteMr, remoteOffset, stagingBuffer);
+						}
+						break;
+					}
+				}
+			} catch (NoSuchFieldException e) {
+				throw new IOException(e);
+			} catch (IllegalAccessException e) {
+				throw new IOException(e);
+			}
+		}
+
+		return future;
+	}
+
+	public Future<DataResult> write(ByteBuffer buffer, ByteBuffer region, BlockInfo blockInfo, long remoteOffset)
+			throws IOException, InterruptedException {
+		return Op(Operation.WRITE, buffer, blockInfo, remoteOffset);
+	}
+
+	public Future<DataResult> read(ByteBuffer buffer, ByteBuffer region, BlockInfo blockInfo, long remoteOffset)
+			throws IOException, InterruptedException {
+		return Op(Operation.READ, buffer, blockInfo, remoteOffset);
+	}
+
+	void poll() throws IOException {
+		//TODO: 16
+		endpoint.processCompletions(16);
+	}
+
+	void putBuffer(ByteBuffer buffer) throws IOException {
+		cache.putBuffer(buffer);
 	}
 
 	public void close() throws IOException, InterruptedException {
-
+		endpoint.close();
 	}
 
 	public boolean isLocal() {

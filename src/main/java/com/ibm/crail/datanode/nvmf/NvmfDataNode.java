@@ -44,6 +44,7 @@ public class NvmfDataNode extends DataNode {
 
 	private static final Logger LOG = CrailUtils.getLogger();
 	private InetSocketAddress datanodeAddr;
+	private NvmeEndpointGroup clientGroup;
 
 	public InetSocketAddress getAddress() {
 		if (datanodeAddr == null) {
@@ -62,7 +63,10 @@ public class NvmfDataNode extends DataNode {
 	}
 
 	public DataNodeEndpoint createEndpoint(InetSocketAddress inetSocketAddress) throws IOException {
-		return new NvmfDataNodeEndpoint();
+		if (clientGroup == null) {
+			clientGroup = new NvmeEndpointGroup();
+		}
+		return new NvmfDataNodeEndpoint(clientGroup, inetSocketAddress);
 	}
 
 	public void run() throws Exception {
