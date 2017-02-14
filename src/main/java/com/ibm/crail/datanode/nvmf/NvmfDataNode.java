@@ -70,7 +70,7 @@ public class NvmfDataNode extends DataNode {
 
 		NvmeEndpointGroup group = new NvmeEndpointGroup();
 		NvmeServerEndpoint serverEndpoint = group.createServerEndpoint();
-		URI url = new URI("nvmef://" + NvmfDataNodeConstants.IP_ADDR + ":" + NvmfDataNodeConstants.PORT +
+		URI url = new URI("nvmef://" + NvmfDataNodeConstants.IP_ADDR.getHostAddress() + ":" + NvmfDataNodeConstants.PORT +
 				"/0/1?subsystem=nqn.2016-06.io.spdk:cnode1&pci=" + NvmfDataNodeConstants.PCIE_ADDR);
 		serverEndpoint.bind(url);
 
