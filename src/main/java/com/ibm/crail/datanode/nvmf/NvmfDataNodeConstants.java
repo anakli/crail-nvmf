@@ -47,6 +47,9 @@ public class NvmfDataNodeConstants {
 	public static final String NAMESPACE_KEY = "namespace";
 	public static int NAMESPACE = 1;
 
+	public static final String ALLOCATION_SIZE_KEY = "allocationsize";
+	public static long ALLOCATION_SIZE = 1073741824; /* 1GB */
+
 	private static String fullKey(String key) {
 		return PREFIX + "." + key;
 	}
@@ -75,11 +78,19 @@ public class NvmfDataNodeConstants {
 		if (arg != null) {
 			PORT = Integer.parseInt(arg);
 		}
+
+		arg = get(conf, ALLOCATION_SIZE_KEY);
+		if (arg != null) {
+			ALLOCATION_SIZE = Long.parseLong(arg);
+		}
 	}
 
 	public static void verify() throws IOException {
 		if (NAMESPACE <= 0){
 			throw new IOException("Namespace must be > 0");
+		}
+		if (ALLOCATION_SIZE % CrailConstants.BLOCK_SIZE != 0){
+			throw new IOException("allocationsize must be multiple of crail.blocksize");
 		}
 	}
 
@@ -88,5 +99,6 @@ public class NvmfDataNodeConstants {
 		logger.info(fullKey(PORT_KEY) + " " + PORT);
 		logger.info(fullKey(PCIE_ADDR_KEY) + " " + PCIE_ADDR);
 		logger.info(fullKey(NAMESPACE_KEY) + " " + NAMESPACE);
+		logger.info(fullKey(ALLOCATION_SIZE_KEY) + " " + ALLOCATION_SIZE);
 	}
 }

@@ -23,6 +23,7 @@
 package com.ibm.crail.datanode.nvmf;
 
 import com.ibm.crail.conf.CrailConfiguration;
+import com.ibm.crail.conf.CrailConstants;
 import com.ibm.crail.datanode.DataNodeEndpoint;
 import com.ibm.crail.datanode.nvmf.client.NvmfDataNodeEndpoint;
 import com.ibm.crail.utils.CrailUtils;
@@ -45,6 +46,9 @@ public class NvmfDataNode extends DataNode {
 	private InetSocketAddress datanodeAddr;
 
 	public InetSocketAddress getAddress() {
+		if (datanodeAddr == null) {
+			datanodeAddr = new InetSocketAddress(NvmfDataNodeConstants.IP_ADDR, NvmfDataNodeConstants.PORT);
+		}
 		return datanodeAddr;
 	}
 
@@ -61,10 +65,6 @@ public class NvmfDataNode extends DataNode {
 		return new NvmfDataNodeEndpoint();
 	}
 
-	public static InetSocketAddress getDataNodeAddress() throws Exception {
-		return new InetSocketAddress(NvmfDataNodeConstants.IP_ADDR, NvmfDataNodeConstants.PORT);
-	}
-
 	public void run() throws Exception {
 		LOG.info("initalizing NVMf datanode");
 
@@ -74,12 +74,33 @@ public class NvmfDataNode extends DataNode {
 				"/0/1?subsystem=nqn.2016-06.io.spdk:cnode1&pci=" + NvmfDataNodeConstants.PCIE_ADDR);
 		serverEndpoint.bind(url);
 
+		NvmeController controller = serverEndpoint.getNvmecontroller();
+		NvmeNamespace namespace = controller.getNamespace(NvmfDataNodeConstants.NAMESPACE);
+		long namespaceSize = namespace.getSize();
+		long alignedSize = namespaceSize - (namespaceSize % NvmfDataNodeConstants.ALLOCATION_SIZE);
 
-		while (true) {
+		Thread server = new Thread(new NvmfDataNodeServer(serverEndpoint, getAddress()));
+		server.start();
+
+		long addr = 0;
+		while (alignedSize > 0) {
+			DataNodeStatistics statistics = this.getDataNode();
+			LOG.info("datanode statistics, freeBlocks " + statistics.getFreeBlockCount());
+
+			LOG.info("new block, length " + NvmfDataNodeConstants.ALLOCATION_SIZE);
+			LOG.debug("block stag 0, addr " + addr + ", length " + NvmfDataNodeConstants.ALLOCATION_SIZE);
+			alignedSize -= NvmfDataNodeConstants.ALLOCATION_SIZE;
+			this.setBlock(addr, (int)NvmfDataNodeConstants.ALLOCATION_SIZE, 0);
+			addr += NvmfDataNodeConstants.ALLOCATION_SIZE;
+		}
+
+		while (server.isAlive()) {
 			DataNodeStatistics statistics = this.getDataNode();
 			LOG.info("datanode statistics, freeBlocks " + statistics.getFreeBlockCount());
 			Thread.sleep(2000);
 		}
+
+		server.join();
 	}
 
 	public void close() throws Exception {
