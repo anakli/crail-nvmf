@@ -57,8 +57,9 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 		this.inetSocketAddress = inetSocketAddress;
 		endpoint = group.createEndpoint();
 		try {
-			URI url = new URI("nvmef://" + inetSocketAddress.getHostName() + ":" + inetSocketAddress.getPort() +
-					"/0/" + NvmfDataNodeConstants.NAMESPACE + "?subsystem=subsystem=nqn.2016-06.io.spdk:cnode1");
+			URI url = new URI("nvmef://" + inetSocketAddress.getHostString() + ":" + inetSocketAddress.getPort() +
+					"/0/" + NvmfDataNodeConstants.NAMESPACE + "?subsystem=nqn.2016-06.io.spdk:cnode1");
+			LOG.info("URL: " + url.toString());
 			endpoint.connect(url);
 		} catch (URISyntaxException e) {
 			//FIXME
