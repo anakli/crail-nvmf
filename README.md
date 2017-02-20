@@ -18,7 +18,7 @@ Alternatively you can also put these files in your custom classpath.
 ## Configuration parameters
 The current code accepts following parameters (shown with their defaut values):
 ```
-crail.datanode.nvmf.bind_ip       X.X.X.X
+crail.datanode.nvmf.bindip       X.X.X.X
 crail.datanode.nvmf.port          50025
 crail.datanode.nvmf.pcieaddr      XXXX:XX:XX.X
 crail.datanode.nvmf.namespace     1
