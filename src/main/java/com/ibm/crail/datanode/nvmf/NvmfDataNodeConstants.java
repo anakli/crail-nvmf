@@ -35,7 +35,7 @@ public class NvmfDataNodeConstants {
 
 	private final static String PREFIX = "crail.datanode.nvmf";
 
-	public static final String IP_ADDR_KEY = "ip";
+	public static final String IP_ADDR_KEY = "bindip";
 	public static InetAddress IP_ADDR;
 
 	public static final String PORT_KEY = "port";
@@ -95,7 +95,7 @@ public class NvmfDataNodeConstants {
 	}
 
 	public static void printConf(Logger logger) {
-		logger.info(fullKey(IP_ADDR_KEY) + " " + IP_ADDR);
+		logger.info(fullKey(IP_ADDR_KEY) + " " + IP_ADDR.getHostAddress());
 		logger.info(fullKey(PORT_KEY) + " " + PORT);
 		logger.info(fullKey(PCIE_ADDR_KEY) + " " + PCIE_ADDR);
 		logger.info(fullKey(NAMESPACE_KEY) + " " + NAMESPACE);
