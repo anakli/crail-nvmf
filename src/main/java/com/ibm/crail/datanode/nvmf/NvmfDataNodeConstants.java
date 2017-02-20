@@ -52,7 +52,7 @@ public class NvmfDataNodeConstants {
 	public static long ALLOCATION_SIZE = 1073741824; /* 1GB */
 
 	public static final String HUGEDIR_KEY = "hugedir";
-	public static String HUGEDIR  = "/dev/hugepages";
+	public static String HUGEDIR  = null;
 
 	public static final String SOCKETMEM_KEY = "socketmem";
 	public static long[] SOCKETMEM = {256, 256};
@@ -93,7 +93,7 @@ public class NvmfDataNodeConstants {
 
 		arg = get(conf, HUGEDIR_KEY);
 		if (arg != null) {
-			HUGEDIR = arg;
+			HUGEDIR = arg.length() == 0 ? null : arg;
 		}
 
 		arg = get(conf, SOCKETMEM_KEY);
