@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 
 public class NvmfDataNodeConstants {
 
@@ -49,6 +50,12 @@ public class NvmfDataNodeConstants {
 
 	public static final String ALLOCATION_SIZE_KEY = "allocationsize";
 	public static long ALLOCATION_SIZE = 1073741824; /* 1GB */
+
+	public static final String HUGEDIR_KEY = "hugedir";
+	public static String HUGEDIR  = "/dev/hugepages";
+
+	public static final String SOCKETMEM_KEY = "socketmem";
+	public static long[] SOCKETMEM = {256, 256};
 
 	private static String fullKey(String key) {
 		return PREFIX + "." + key;
@@ -83,6 +90,20 @@ public class NvmfDataNodeConstants {
 		if (arg != null) {
 			ALLOCATION_SIZE = Long.parseLong(arg);
 		}
+
+		arg = get(conf, HUGEDIR_KEY);
+		if (arg != null) {
+			HUGEDIR = arg;
+		}
+
+		arg = get(conf, SOCKETMEM_KEY);
+		if (arg != null) {
+			String[] split = arg.split(",");
+			SOCKETMEM = new long[split.length];
+			for (int i = 0; i < split.length; i++) {
+				SOCKETMEM[i] = Long.parseLong(split[i]);
+			}
+		}
 	}
 
 	public static void verify() throws IOException {
@@ -100,5 +121,7 @@ public class NvmfDataNodeConstants {
 		logger.info(fullKey(PCIE_ADDR_KEY) + " " + PCIE_ADDR);
 		logger.info(fullKey(NAMESPACE_KEY) + " " + NAMESPACE);
 		logger.info(fullKey(ALLOCATION_SIZE_KEY) + " " + ALLOCATION_SIZE);
+		logger.info(fullKey(HUGEDIR_KEY) + " " + HUGEDIR);
+		logger.info(fullKey(SOCKETMEM_KEY) + " " + Arrays.toString(SOCKETMEM));
 	}
 }

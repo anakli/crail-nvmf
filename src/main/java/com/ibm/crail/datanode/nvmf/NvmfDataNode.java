@@ -64,7 +64,9 @@ public class NvmfDataNode extends DataNode {
 
 	public DataNodeEndpoint createEndpoint(InetSocketAddress inetSocketAddress) throws IOException {
 		if (clientGroup == null) {
-			clientGroup = new NvmeEndpointGroup();
+			clientGroup = new NvmeEndpointGroup(new NvmeTransportType[]{NvmeTransportType.RDMA},
+					NvmfDataNodeConstants.HUGEDIR,
+					NvmfDataNodeConstants.SOCKETMEM);
 		}
 		return new NvmfDataNodeEndpoint(clientGroup, inetSocketAddress);
 	}
@@ -72,7 +74,9 @@ public class NvmfDataNode extends DataNode {
 	public void run() throws Exception {
 		LOG.info("initalizing NVMf datanode");
 
-		NvmeEndpointGroup group = new NvmeEndpointGroup();
+		NvmeEndpointGroup group = new NvmeEndpointGroup(
+				new NvmeTransportType[]{NvmeTransportType.PCIE, NvmeTransportType.RDMA}, NvmfDataNodeConstants.HUGEDIR,
+				NvmfDataNodeConstants.SOCKETMEM);
 		NvmeServerEndpoint serverEndpoint = group.createServerEndpoint();
 		URI url = new URI("nvmef://" + NvmfDataNodeConstants.IP_ADDR.getHostAddress() + ":" + NvmfDataNodeConstants.PORT +
 				"/0/1?subsystem=nqn.2016-06.io.spdk:cnode1&pci=" + NvmfDataNodeConstants.PCIE_ADDR);
