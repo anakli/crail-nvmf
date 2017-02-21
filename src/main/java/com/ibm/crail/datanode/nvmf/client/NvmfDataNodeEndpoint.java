@@ -130,10 +130,11 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 					case WRITE: {
 						if (NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, remoteOffset) == 0) {
 							// Do not read if the offset is aligned to sector size
+							int sizeToWrite = buffer.remaining();
 							stagingBuffer.put(buffer);
 							stagingBuffer.position(0);
 							IOCompletion completion = endpoint.write(stagingBuffer, lba);
-							future = new NvmfDataFuture(this, completion, buffer.remaining());
+							future = new NvmfDataFuture(this, completion, sizeToWrite);
 						} else {
 							// RMW but append only file system allows only reading last sector
 							// and dir entries are sector aligned
