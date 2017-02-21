@@ -59,7 +59,7 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 		try {
 			URI url = new URI("nvmef://" + inetSocketAddress.getHostString() + ":" + inetSocketAddress.getPort() +
 					"/0/" + NvmfDataNodeConstants.NAMESPACE + "?subsystem=nqn.2016-06.io.spdk:cnode1");
-			LOG.info("URL: " + url.toString());
+			LOG.info("Connecting to " + url.toString());
 			endpoint.connect(url);
 		} catch (URISyntaxException e) {
 			//FIXME
@@ -133,7 +133,7 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 							stagingBuffer.put(buffer);
 							stagingBuffer.position(0);
 							IOCompletion completion = endpoint.write(stagingBuffer, lba);
-							future = new NvmfDataFuture(this, completion, (int)alignedSize);
+							future = new NvmfDataFuture(this, completion, buffer.remaining());
 						} else {
 							// RMW but append only file system allows only reading last sector
 							// and dir entries are sector aligned
