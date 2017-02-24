@@ -31,6 +31,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 public class NvmfDataNodeConstants {
 
@@ -56,6 +57,9 @@ public class NvmfDataNodeConstants {
 
 	public static final String SOCKETMEM_KEY = "socketmem";
 	public static long[] SOCKETMEM = {256, 256};
+
+	public static final TimeUnit TIME_UNIT = TimeUnit.MINUTES;
+	public static final long TIME_OUT = 15;
 
 	private static String fullKey(String key) {
 		return PREFIX + "." + key;

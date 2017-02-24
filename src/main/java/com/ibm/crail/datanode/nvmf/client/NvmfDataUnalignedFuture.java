@@ -23,6 +23,7 @@
 package com.ibm.crail.datanode.nvmf.client;
 
 import com.ibm.crail.datanode.DataResult;
+import com.ibm.crail.datanode.nvmf.NvmfDataNodeConstants;
 import com.ibm.crail.namenode.protocol.BlockInfo;
 import com.ibm.disni.nvmef.spdk.IOCompletion;
 import sun.misc.Unsafe;
@@ -31,6 +32,7 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public abstract class NvmfDataUnalignedFuture implements Future<DataResult>, DataResult  {
@@ -42,6 +44,8 @@ public abstract class NvmfDataUnalignedFuture implements Future<DataResult>, Dat
 	protected final long remoteOffset;
 	protected final int len;
 	protected final ByteBuffer stagingBuffer;
+	protected boolean done;
+	protected Exception exception;
 	protected Unsafe unsafe;
 
 	public NvmfDataUnalignedFuture(NvmfDataNodeEndpoint endpoint, IOCompletion completion, ByteBuffer buffer,
@@ -56,6 +60,20 @@ public abstract class NvmfDataUnalignedFuture implements Future<DataResult>, Dat
 		this.len = buffer.remaining();
 		this.stagingBuffer = stagingBuffer;
 		this.unsafe = getUnsafe();
+		done = false;
+	}
+
+	public boolean isDone() {
+		try {
+			get(0, TimeUnit.NANOSECONDS);
+		} catch (InterruptedException e) {
+			exception = e;
+		} catch (ExecutionException e) {
+			exception = e;
+		} catch (TimeoutException e) {
+			// i.e. operation is not finished
+		}
+		return done;
 	}
 
 	public int getLen() {
@@ -72,9 +90,9 @@ public abstract class NvmfDataUnalignedFuture implements Future<DataResult>, Dat
 
 	public DataResult get() throws InterruptedException, ExecutionException {
 		try {
-			return get(-1, null);
+			return get(NvmfDataNodeConstants.TIME_OUT, NvmfDataNodeConstants.TIME_UNIT);
 		} catch (TimeoutException e) {
-			throw new InterruptedException(e.toString());
+			throw new ExecutionException(e);
 		}
 	}
 

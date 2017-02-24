@@ -1,6 +1,7 @@
 package com.ibm.crail.datanode.nvmf.client;
 
 import com.ibm.crail.datanode.DataResult;
+import com.ibm.crail.datanode.nvmf.NvmfDataNodeConstants;
 import com.ibm.disni.nvmef.spdk.IOCompletion;
 import com.ibm.disni.nvmef.spdk.NvmeGenericCommandStatusCode;
 import com.ibm.disni.nvmef.spdk.NvmeStatusCodeType;
@@ -19,6 +20,7 @@ public class NvmfDataFuture implements Future<DataResult>, DataResult {
 	private final NvmfDataNodeEndpoint endpoint;
 	private final IOCompletion completion;
 	private final int len;
+	private IOException exception;
 
 	public NvmfDataFuture(NvmfDataNodeEndpoint endpoint, IOCompletion completion, int len) {
 		this.endpoint = endpoint;
@@ -39,22 +41,45 @@ public class NvmfDataFuture implements Future<DataResult>, DataResult {
 	}
 
 	public boolean isDone() {
+		if (!completion.done()) {
+			try {
+				endpoint.poll();
+			} catch (IOException e) {
+				exception = e;
+				return false;
+			}
+		}
 		return completion.done();
 	}
 
 	public DataResult get() throws InterruptedException, ExecutionException {
-		return get(-1, null);
+		try {
+			return get(NvmfDataNodeConstants.TIME_OUT, NvmfDataNodeConstants.TIME_UNIT);
+		} catch (TimeoutException e) {
+			throw new ExecutionException(e);
+		}
 	}
 
-	public DataResult get(long l, TimeUnit timeUnit) throws InterruptedException, ExecutionException {
+	public DataResult get(long timeout, TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
+		if (exception != null) {
+			throw new ExecutionException(exception);
+		}
 		if (!completion.done()) {
+			long start = System.nanoTime();
+			long end = start + TimeUnit.NANOSECONDS.convert(timeout, timeUnit);
+			boolean waitTimeOut;
 			do {
 				try {
 					endpoint.poll();
 				} catch (IOException e) {
 					throw new ExecutionException(e);
 				}
-			} while (!completion.done());
+				// we don't want to trigger timeout on first iteration
+				waitTimeOut = System.nanoTime() > end;
+			} while (!completion.done() && !waitTimeOut);
+			if (!completion.done() && waitTimeOut) {
+				throw new TimeoutException("get wait time out!");
+			}
 			if (completion.getStatusCodeType() != NvmeStatusCodeType.GENERIC &&
 					completion.getStatusCode() != NvmeGenericCommandStatusCode.SUCCESS.getNumVal()) {
 				throw new ExecutionException("Error: " + completion.getStatusCodeType().name() + " - " +

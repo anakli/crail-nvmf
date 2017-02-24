@@ -34,33 +34,28 @@ import java.util.concurrent.TimeoutException;
 
 public class NvmfDataUnalignedReadFuture extends NvmfDataUnalignedFuture {
 
-	private boolean done;
-
 	public NvmfDataUnalignedReadFuture(NvmfDataNodeEndpoint endpoint, IOCompletion completion, ByteBuffer buffer,
 									   BlockInfo remoteMr, long remoteOffset, ByteBuffer stagingBuffer)
 			throws NoSuchFieldException, IllegalAccessException {
 		super(endpoint, completion, buffer, remoteMr, remoteOffset, stagingBuffer);
-		done = false;
-	}
-
-	public boolean isDone() {
-		return done;
 	}
 
 	public DataResult get(long l, TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
+		if (exception != null) {
+			throw new ExecutionException(exception);
+		}
 		if (!done) {
 			initFuture.get(l, timeUnit);
 			long srcAddr = NvmfDataNodeUtils.getAddress(stagingBuffer) +
 					NvmfDataNodeUtils.namespaceSectorOffset(endpoint.getSectorSize(), remoteOffset);
 			long dstAddr = NvmfDataNodeUtils.getAddress(buffer) + localOffset;
 			unsafe.copyMemory(srcAddr, dstAddr, len);
+			done = true;
 			try {
 				endpoint.putBuffer(stagingBuffer);
 			} catch (IOException e) {
-				throw new ExecutionException(e.toString()) {
-				};
+				throw new ExecutionException(e);
 			}
-			done = true;
 		}
 		return this;
 	}

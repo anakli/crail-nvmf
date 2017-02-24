@@ -98,6 +98,13 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 			throw new IOException("remote fileOffset + remoteOffset + len too large " + tmpAddr);
 		}
 
+//		LOG.info("op = " + op.name() +
+//				", position = " + buffer.position() +
+//				", localOffset = " + buffer.position() +
+//				", remoteOffset = " + remoteOffset +
+//				", remoteAddr = " + remoteMr.getAddr() +
+//				", len = " + buffer.remaining());
+
 		boolean aligned = NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, remoteOffset) == 0
 				&& NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, buffer.remaining()) == 0;
 		long lba = NvmfDataNodeUtils.linearBlockAddress(remoteMr, remoteOffset, sectorSize);

@@ -29,38 +29,47 @@ import com.ibm.disni.nvmef.spdk.IOCompletion;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public class NvmfDataUnalignedRMWFuture extends NvmfDataUnalignedFuture {
 
-	private boolean done;
+	private boolean initDone;
+	private Future<DataResult> writeFuture;
 
 	public NvmfDataUnalignedRMWFuture(NvmfDataNodeEndpoint endpoint, IOCompletion completion, ByteBuffer buffer,
 									  BlockInfo remoteMr, long remoteOffset, ByteBuffer stagingBuffer)
 			throws NoSuchFieldException, IllegalAccessException {
 		super(endpoint, completion, buffer, remoteMr, remoteOffset, stagingBuffer);
-		done = false;
-	}
-
-	public boolean isDone() {
-		return done;
+		initDone = false;
 	}
 
 	public DataResult get(long l, TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
+		if (exception != null) {
+			throw new ExecutionException(exception);
+		}
 		if (!done) {
-			initFuture.get(l, timeUnit);
-			long srcAddr = NvmfDataNodeUtils.getAddress(buffer) + localOffset;
-			long dstAddr = NvmfDataNodeUtils.getAddress(stagingBuffer) + NvmfDataNodeUtils.namespaceSectorOffset(
-					endpoint.getSectorSize(), remoteOffset);
-			unsafe.copyMemory(srcAddr, dstAddr, len);
+			if (!initDone) {
+				initFuture.get(l, timeUnit);
+				long srcAddr = NvmfDataNodeUtils.getAddress(buffer) + localOffset;
+				long dstAddr = NvmfDataNodeUtils.getAddress(stagingBuffer) + NvmfDataNodeUtils.namespaceSectorOffset(
+						endpoint.getSectorSize(), remoteOffset);
+				unsafe.copyMemory(srcAddr, dstAddr, len);
 
-			stagingBuffer.clear();
-			int alignedLen = (int) NvmfDataNodeUtils.alignLength(endpoint.getSectorSize(), remoteOffset, len);
-			stagingBuffer.limit(alignedLen);
+				stagingBuffer.clear();
+				int alignedLen = (int) NvmfDataNodeUtils.alignLength(endpoint.getSectorSize(), remoteOffset, len);
+				stagingBuffer.limit(alignedLen);
+				try {
+					writeFuture = endpoint.write(stagingBuffer, null, remoteMr,
+							NvmfDataNodeUtils.alignOffset(endpoint.getSectorSize(), remoteOffset));
+				} catch (IOException e) {
+					throw new ExecutionException(e);
+				}
+				initDone =true;
+			}
+			writeFuture.get(l, timeUnit);
 			try {
-				endpoint.write(stagingBuffer, null, remoteMr, NvmfDataNodeUtils.alignOffset(endpoint.getSectorSize(),
-						remoteOffset)).get(l, timeUnit);
 				endpoint.putBuffer(stagingBuffer);
 			} catch (IOException e) {
 				throw new ExecutionException(e);
