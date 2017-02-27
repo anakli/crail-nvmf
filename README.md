@@ -27,8 +27,8 @@ crail.datanode.nvmf.allocationsize 1073741824
 
 You can put these values in `$CRAIL_HOME/conf/crail-site.conf`.
 
-## Starting a crail-blkdev datanode 
-To start a crail-blkdev datanode, start a datanodes as 
+## Starting a crail-nvmf datanode 
+To start a crail-nvmf datanode, start a datanodes as 
 ```bash 
 $CRAIL_HOME/bin/crail datanode -t com.ibm.crail.datanode.nvmf.NvmfDataNode
 ```
