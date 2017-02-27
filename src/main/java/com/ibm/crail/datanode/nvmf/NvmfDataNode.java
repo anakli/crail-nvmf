@@ -37,8 +37,6 @@ import org.slf4j.Logger;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
 
 public class NvmfDataNode extends DataNode {
 
