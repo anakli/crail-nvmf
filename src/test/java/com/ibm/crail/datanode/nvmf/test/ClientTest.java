@@ -134,7 +134,7 @@ public class ClientTest {
 		Assert.assertEquals(inputBuffer.remaining(), 0);
 		outputBuffer.position(position);
 		inputBuffer.position(position);
-		Assert.assertEquals(inputBuffer, outputBuffer);
+		Assert.assertArrayEquals(inputBuffer.array(), outputBuffer.array());
 
 		fs.delete(p.toString(), false);
 	}
