@@ -140,6 +140,7 @@ public class ClientTest {
 					if (a != b) {
 						System.err.println("outputBuffer[" + i + "] = " + Integer.toHexString(a) + " != " +
 								"inputBuffer[" + i + "] = " + Integer.toHexString(b));
+						break;
 					}
 				}
 			}
