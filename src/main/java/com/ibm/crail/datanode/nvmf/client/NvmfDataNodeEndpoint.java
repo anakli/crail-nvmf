@@ -80,11 +80,12 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 
 	public Future<DataResult> Op(Operation op, ByteBuffer buffer, BlockInfo remoteMr, long remoteOffset)
 			throws IOException, InterruptedException {
-		if (buffer.remaining() > CrailConstants.BLOCK_SIZE){
-			throw new IOException("write size too large " + buffer.remaining());
+		int length = buffer.remaining();
+		if (length > CrailConstants.BLOCK_SIZE){
+			throw new IOException("write size too large " + length);
 		}
-		if (buffer.remaining() <= 0){
-			throw new IOException("write size too small, len " + buffer.remaining());
+		if (length <= 0){
+			throw new IOException("write size too small, len " + length);
 		}
 		if (buffer.position() < 0){
 			throw new IOException("local offset too small " + buffer.position());
@@ -93,8 +94,8 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 			throw new IOException("remote offset too small " + remoteOffset);
 		}
 
-		if (remoteMr.getAddr() + remoteOffset + buffer.remaining() > endpoint.getNamespaceSize()){
-			long tmpAddr = remoteMr.getAddr() + remoteOffset + buffer.remaining();
+		if (remoteMr.getAddr() + remoteOffset + length > endpoint.getNamespaceSize()){
+			long tmpAddr = remoteMr.getAddr() + remoteOffset + length;
 			throw new IOException("remote fileOffset + remoteOffset + len too large " + tmpAddr);
 		}
 
@@ -103,14 +104,14 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 //				", localOffset = " + buffer.position() +
 //				", remoteOffset = " + remoteOffset +
 //				", remoteAddr = " + remoteMr.getAddr() +
-//				", len = " + buffer.remaining());
+//				", length = " + length);
 
 		boolean aligned = NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, remoteOffset) == 0
-				&& NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, buffer.remaining()) == 0;
+				&& NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, length) == 0;
 		long lba = NvmfDataNodeUtils.linearBlockAddress(remoteMr, remoteOffset, sectorSize);
 		Future<DataResult> future = null;
 		if (aligned) {
-			LOG.debug("aligned");
+//			LOG.debug("aligned");
 			IOCompletion completion = null;
 			switch(op) {
 				case READ:
@@ -120,13 +121,13 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 					completion = endpoint.write(buffer, lba);
 					break;
 			}
-			future = new NvmfDataFuture(this, completion, buffer.remaining());
+			future = new NvmfDataFuture(this, completion, length);
 		} else {
-			long alignedSize = NvmfDataNodeUtils.alignLength(sectorSize, remoteOffset, buffer.remaining());
+			long alignedLength = NvmfDataNodeUtils.alignLength(sectorSize, remoteOffset, length);
 
 			ByteBuffer stagingBuffer = cache.getBuffer();
 			stagingBuffer.clear();
-			stagingBuffer.limit((int)alignedSize);
+			stagingBuffer.limit((int)alignedLength);
 			try {
 				switch(op) {
 					case READ: {
@@ -137,7 +138,7 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 					case WRITE: {
 						if (NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, remoteOffset) == 0) {
 							// Do not read if the offset is aligned to sector size
-							int sizeToWrite = buffer.remaining();
+							int sizeToWrite = length;
 							stagingBuffer.put(buffer);
 							stagingBuffer.position(0);
 							IOCompletion completion = endpoint.write(stagingBuffer, lba);

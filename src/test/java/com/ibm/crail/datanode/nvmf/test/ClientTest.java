@@ -85,9 +85,9 @@ public class ClientTest {
 			outputBuffer.limit(toWrite);
 			fillRandom(outputBuffer);
 			CrailResult result = outputStream.write(outputBuffer).get();
-			Assert.assertEquals(result.getLen(), toWrite);
-			Assert.assertEquals(outputBuffer.remaining(), 0);
-			Assert.assertEquals(outputStream.position(), position);
+			Assert.assertEquals(toWrite, result.getLen());
+			Assert.assertEquals(0, outputBuffer.remaining());
+			Assert.assertEquals(position, outputStream.position());
 		}
 	}
 
@@ -109,22 +109,22 @@ public class ClientTest {
 		outputBuffer.limit(outputBuffer.position() + length);
 		fillRandom(outputBuffer);
 		CrailResult result = outputStream.write(outputBuffer).get();
-		Assert.assertEquals(result.getLen(), length);
-		Assert.assertEquals(outputBuffer.remaining(), 0);
-		Assert.assertEquals(outputStream.position(), remoteOffset + length);
+		Assert.assertEquals(length, result.getLen());
+		Assert.assertEquals(0, outputBuffer.remaining());
+		Assert.assertEquals(remoteOffset + length, outputStream.position());
 
 
 		if (inputStream.position() != remoteOffset) {
 			inputStream.seek(remoteOffset);
-			Assert.assertEquals(inputStream.position(), remoteOffset);
+			Assert.assertEquals(remoteOffset, inputStream.position());
 		}
 
 		inputBuffer.position(position);
 		inputBuffer.limit(inputBuffer.position() + length);
 		fillRandom(inputBuffer);
 		result = inputStream.read(inputBuffer).get();
-		Assert.assertEquals(result.getLen(), length);
-		Assert.assertEquals(inputBuffer.remaining(), 0);
+		Assert.assertEquals(length, result.getLen());
+		Assert.assertEquals(0, inputBuffer.remaining());
 		outputBuffer.position(position);
 		inputBuffer.position(position);
 		try {
