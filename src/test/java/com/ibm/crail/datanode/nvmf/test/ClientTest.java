@@ -87,6 +87,7 @@ public class ClientTest {
 			CrailResult result = outputStream.write(outputBuffer).get();
 			Assert.assertEquals(result.getLen(), toWrite);
 			Assert.assertEquals(outputBuffer.remaining(), 0);
+			Assert.assertEquals(outputStream.position(), position);
 		}
 	}
 
