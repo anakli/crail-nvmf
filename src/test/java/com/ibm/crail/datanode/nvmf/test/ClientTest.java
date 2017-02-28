@@ -6,20 +6,14 @@ import com.ibm.crail.conf.CrailConstants;
 import org.apache.hadoop.fs.Path;
 import org.junit.After;
 import org.junit.Before;
-
 import org.junit.Test;
-import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
 
 import org.junit.Assert;
 
 import java.nio.ByteBuffer;
 import java.util.Random;
-import java.util.concurrent.Future;
 
 public class ClientTest {
-
-	final Logger LOG = LoggerFactory.getLogger(ClientTest.class);
 
 	CrailFS fs;
 	final Path testBasePath = new Path("/test");
@@ -28,7 +22,6 @@ public class ClientTest {
 
 	@Before
 	public void init() throws Exception {
-		LOG.info("init");
 		CrailConfiguration conf = new CrailConfiguration();
 		fs = CrailFS.newInstance(conf);
 		fs.makeDirectory(testBasePath.toString()).get();
@@ -36,7 +29,6 @@ public class ClientTest {
 
 	@After
 	public void fini() throws Exception {
-		LOG.info("fini");
 		fs.delete(testBasePath.toString(), true);
 	}
 
@@ -102,7 +94,7 @@ public class ClientTest {
 		ByteBuffer outputBuffer = ByteBuffer.allocateDirect(length + position);
 		ByteBuffer inputBuffer = ByteBuffer.allocateDirect(outputBuffer.capacity());
 
-		LOG.info("DirectStream write/read with from buffer position = " +
+		System.err.println("DirectStream write/read with from buffer position = " +
 				position + ", length = " + length + ", remoteOffset = " + remoteOffset);
 
 		Path p = new Path(testBasePath, "fooOutputStream" + length);
@@ -134,7 +126,24 @@ public class ClientTest {
 		Assert.assertEquals(inputBuffer.remaining(), 0);
 		outputBuffer.position(position);
 		inputBuffer.position(position);
-		Assert.assertTrue(inputBuffer.equals(outputBuffer));
+		try {
+			Assert.assertTrue(inputBuffer.compareTo(outputBuffer) == 0);
+		} catch (AssertionError e) {
+			System.err.println("outputBuffer = " + outputBuffer + ", inputBuffer = " + inputBuffer);
+			System.err.println("outputStream.position() = " + outputStream.position() +
+					", inputStream.position() = " + inputStream.position());
+			if (outputBuffer.remaining() == inputBuffer.remaining()) {
+				for(int i = 0; outputBuffer.remaining() > 0; i++) {
+					int a = outputBuffer.get();
+					int b = inputBuffer.get();
+					if (a != b) {
+						System.err.println("outputBuffer[" + i + "] = " + Integer.toHexString(a) + " != " +
+								"inputBuffer[" + i + "] = " + Integer.toHexString(b));
+					}
+				}
+			}
+			throw e;
+		}
 
 		fs.delete(p.toString(), false);
 	}
