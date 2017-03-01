@@ -64,14 +64,16 @@ public abstract class NvmfDataUnalignedFuture implements Future<DataResult>, Dat
 	}
 
 	public boolean isDone() {
-		try {
-			get(0, TimeUnit.NANOSECONDS);
-		} catch (InterruptedException e) {
-			exception = e;
-		} catch (ExecutionException e) {
-			exception = e;
-		} catch (TimeoutException e) {
-			// i.e. operation is not finished
+		if (!done) {
+			try {
+				get(0, TimeUnit.NANOSECONDS);
+			} catch (InterruptedException e) {
+				exception = e;
+			} catch (ExecutionException e) {
+				exception = e;
+			} catch (TimeoutException e) {
+				// i.e. operation is not finished
+			}
 		}
 		return done;
 	}

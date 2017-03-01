@@ -44,6 +44,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 
 public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 	private static final Logger LOG = CrailUtils.getLogger();
@@ -52,6 +53,7 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 	private final NvmeEndpoint endpoint;
 	private final int sectorSize;
 	private final DirectBufferCache cache;
+	private final Semaphore commandQueueAvailable;
 
 	public NvmfDataNodeEndpoint(NvmeEndpointGroup group, InetSocketAddress inetSocketAddress) throws IOException {
 		this.inetSocketAddress = inetSocketAddress;
@@ -66,7 +68,8 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 			e.printStackTrace();
 		}
 		sectorSize = endpoint.getSectorSize();
-		this.cache = new DirectBufferCache();
+		cache = new DirectBufferCache();
+		commandQueueAvailable = new Semaphore(endpoint.getIOQueueSize());
 	}
 
 	public int getSectorSize() {
@@ -105,6 +108,10 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 //				", remoteOffset = " + remoteOffset +
 //				", remoteAddr = " + remoteMr.getAddr() +
 //				", length = " + length);
+
+		while (commandQueueAvailable.tryAcquire()) {
+			poll();
+		}
 
 		boolean aligned = NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, remoteOffset) == 0
 				&& NvmfDataNodeUtils.namespaceSectorOffset(sectorSize, length) == 0;
@@ -176,6 +183,10 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 	void poll() throws IOException {
 		//TODO: 16
 		endpoint.processCompletions(16);
+	}
+
+	void releaseQueueEntry() {
+		commandQueueAvailable.release();
 	}
 
 	void putBuffer(ByteBuffer buffer) throws IOException {

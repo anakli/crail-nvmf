@@ -20,7 +20,8 @@ public class NvmfDataFuture implements Future<DataResult>, DataResult {
 	private final NvmfDataNodeEndpoint endpoint;
 	private final IOCompletion completion;
 	private final int len;
-	private IOException exception;
+	private Exception exception;
+	private boolean done;
 
 	public NvmfDataFuture(NvmfDataNodeEndpoint endpoint, IOCompletion completion, int len) {
 		this.endpoint = endpoint;
@@ -41,15 +42,18 @@ public class NvmfDataFuture implements Future<DataResult>, DataResult {
 	}
 
 	public boolean isDone() {
-		if (!completion.done()) {
+		if (!done) {
 			try {
-				endpoint.poll();
-			} catch (IOException e) {
+				get(0, TimeUnit.NANOSECONDS);
+			} catch (InterruptedException e) {
 				exception = e;
-				return false;
+			} catch (ExecutionException e) {
+				exception = e;
+			} catch (TimeoutException e) {
+				// i.e. operation is not finished
 			}
 		}
-		return completion.done();
+		return done;
 	}
 
 	public DataResult get() throws InterruptedException, ExecutionException {
@@ -80,6 +84,8 @@ public class NvmfDataFuture implements Future<DataResult>, DataResult {
 			if (!completion.done() && waitTimeOut) {
 				throw new TimeoutException("get wait time out!");
 			}
+			done = true;
+			endpoint.releaseQueueEntry();
 			if (completion.getStatusCodeType() != NvmeStatusCodeType.GENERIC &&
 					completion.getStatusCode() != NvmeGenericCommandStatusCode.SUCCESS.getNumVal()) {
 				throw new ExecutionException("Error: " + completion.getStatusCodeType().name() + " - " +
