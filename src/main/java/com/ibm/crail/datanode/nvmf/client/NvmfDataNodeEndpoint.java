@@ -182,11 +182,8 @@ public class NvmfDataNodeEndpoint implements DataNodeEndpoint {
 
 	void poll() throws IOException {
 		//TODO: 16
-		endpoint.processCompletions(16);
-	}
-
-	void releaseQueueEntry() {
-		commandQueueAvailable.release();
+		int numberCompletions = endpoint.processCompletions(16);
+		commandQueueAvailable.release(numberCompletions);
 	}
 
 	void putBuffer(ByteBuffer buffer) throws IOException {

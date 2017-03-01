@@ -44,13 +44,10 @@ public class NvmfDataFuture implements Future<DataResult>, DataResult {
 	public boolean isDone() {
 		if (!done) {
 			try {
-				get(0, TimeUnit.NANOSECONDS);
-			} catch (InterruptedException e) {
+				endpoint.poll();
+				done = completion.done();
+			} catch (IOException e) {
 				exception = e;
-			} catch (ExecutionException e) {
-				exception = e;
-			} catch (TimeoutException e) {
-				// i.e. operation is not finished
 			}
 		}
 		return done;
@@ -85,7 +82,6 @@ public class NvmfDataFuture implements Future<DataResult>, DataResult {
 				throw new TimeoutException("get wait time out!");
 			}
 			done = true;
-			endpoint.releaseQueueEntry();
 			if (completion.getStatusCodeType() != NvmeStatusCodeType.GENERIC &&
 					completion.getStatusCode() != NvmeGenericCommandStatusCode.SUCCESS.getNumVal()) {
 				throw new ExecutionException("Error: " + completion.getStatusCodeType().name() + " - " +
